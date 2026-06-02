@@ -16,8 +16,34 @@ using namespace std;
 
 #pragma comment(lib,"WS2_32.lib") //встраиваем статическую библиотеку для заголовка <WS2tcpip.h>
 
-void main ()
+string FormatLastError(DWORD errorCode = WSAGetLastError())
+{
+	LPSTR messageBuffer = nullptr;
 
+	FormatMessageA(
+		FORMAT_MESSAGE_ALLOCATE_BUFFER |
+		FORMAT_MESSAGE_FROM_SYSTEM |
+		FORMAT_MESSAGE_IGNORE_INSERTS,
+		nullptr, errorCode,
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		(LPSTR)&messageBuffer, 0, nullptr
+	);
+
+	string errorMessage;
+	if (messageBuffer == nullptr) {
+		char buffer[100];
+		sprintf_s(buffer, sizeof(buffer), "Unknown error (code: %lu)", errorCode);
+		errorMessage = buffer;
+	}
+	else {
+		errorMessage = messageBuffer;
+		LocalFree(messageBuffer);
+	}
+
+	return errorMessage;
+}
+
+void main()
 {
 	setlocale(LC_ALL, "");
 	//1) Инициализация WinSock:
@@ -26,14 +52,14 @@ void main ()
 	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
 	if (iResult != 0)
 	{
-		cout << "WinSOCK init failed with code: " << iResult;
+		cout << "WinSOCK init failed with code: " << iResult << endl;
 		return;
 	}
 
 	//2) Определяем параметры подключения
 	addrinfo hints;
 	addrinfo* target;
-	ZeroMemory(&hints,sizeof(hints));	//обнуляем экземплярн структуры 
+	ZeroMemory(&hints, sizeof(hints));	//обнуляем экземплярн структуры 
 	hints.ai_family = AF_INET;			//Стек протоколов TCP/IPv4
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;	//Определяем протокол транспортного уровня
@@ -49,18 +75,19 @@ void main ()
 	SOCKET connect_socket = socket(target->ai_family, target->ai_socktype, target->ai_protocol);
 	if (connect_socket == INVALID_SOCKET)
 	{
-		cout << "SOCKET creation failed with error:\t" << WSAGetLastError() << endl;
+		cout << "SOCKET creation failed with error:\t" << FormatLastError() << endl;
 		freeaddrinfo(target);
 		WSACleanup();
 		return;
 	}
 
 	//4)Подключение к узлу
-	iResult = connect(connect_socket,target->ai_addr,target->ai_addrlen);
+	iResult = connect(connect_socket, target->ai_addr, target->ai_addrlen);
 	freeaddrinfo(target);
 	if (iResult == SOCKET_ERROR)
 	{
 		cout << "Enable to connect to server" << endl;
+		cout << "Connect failed with error:\t" << FormatLastError() << endl;
 		closesocket(connect_socket);
 		WSACleanup();
 		return;
@@ -71,7 +98,7 @@ void main ()
 	iResult = send(connect_socket, send_buffer, strlen(send_buffer), 0);
 	if (iResult == SOCKET_ERROR)
 	{
-		cout << "Send failed with error: " << WSAGetLastError() << endl;
+		cout << "Send failed with error: " << FormatLastError() << endl;
 		closesocket(connect_socket);
 		WSACleanup();
 		return;
@@ -85,16 +112,15 @@ void main ()
 		if (iResult > 0)
 			cout << "Bytes received: " << iResult << " Message: " << recv_buffer << endl;
 		else if (iResult == 0) cout << "Connection closed" << endl;
-		else cout << "Receive failed with error " << WSAGetLastError() << endl;
+		else cout << "Receive failed with error " << FormatLastError() << endl;
 	} while (iResult > 0);
 
 	//Закрываем сокет на получение и отправку данных (разрываем TCP-соединение):
-	iResult = shutdown(connect_socket, SD_BOTH);		
+	iResult = shutdown(connect_socket, SD_BOTH);
 	if (iResult == SOCKET_ERROR)
-		cout << "Shutdown failed with error " << WSAGetLastError() << endl;
+		cout << "Shutdown failed with error " << FormatLastError() << endl;
 
 	//7)Освобождаем ресурсы WinSOCK
 	closesocket(connect_socket);
 	WSACleanup();
 }
-

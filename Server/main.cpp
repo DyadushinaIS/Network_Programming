@@ -51,7 +51,7 @@ void main()
 	INT iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
 	if (iResult != 0)
 	{
-		cout << "WSAStartup failed with error: " << iResult << endl;
+		cout << "WSAStartup failed with error: " << FormatLastError (iResult) << endl;
 		return;
 	}
 

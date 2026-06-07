@@ -159,9 +159,13 @@ void main()
 #include<WinSock2.h>
 #include<WS2tcpip.h>
 #include<iphlpapi.h>
+
+#include<FormatLastError.h>
 using namespace std;
 
 #pragma comment(lib,"WS2_32.lib")
+#pragma comment(lib,"FormatLastError.lib")
+
 #define MTU 1500
 
 void main()

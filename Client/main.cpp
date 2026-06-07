@@ -12,9 +12,12 @@
 #include <Winsock2.h>
 #include <WS2tcpip.h>
 #include <iphlpapi.h>
+
+#include<FormatLastError.h>
 using namespace std;
 
 #pragma comment(lib,"WS2_32.lib") //встраиваем статическую библиотеку для заголовка <WS2tcpip.h>
+#pragma comment(lib,"FormatLastError.lib")
 
 //string FormatLastError(DWORD errorCode = WSAGetLastError())
 //{
@@ -43,7 +46,7 @@ using namespace std;
 //	return errorMessage;
 //}
 
-CHAR* FormatLastError(DWORD dwError, CHAR szError[]);
+
 
 void main()
 {
@@ -142,21 +145,3 @@ void main()
 
 // FORMAT LAST ERROR 1:01:53
 
-CHAR* FormatLastError(DWORD dwError, CHAR szError[])
-{
-	LPSTR lpError = NULL;
-	FormatMessage
-	(
-		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-		NULL,
-		dwError,
-		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-		(LPSTR)&lpError,
-		0,
-		NULL
-	);
-	//strcpy(szError, lpError);
-	sprintf(szError, "Error %i:%s", dwError, lpError);
-	LocalFree(lpError);
-	return szError;
-}

@@ -16,36 +16,42 @@ using namespace std;
 
 #pragma comment(lib,"WS2_32.lib") //встраиваем статическую библиотеку для заголовка <WS2tcpip.h>
 
-string FormatLastError(DWORD errorCode = WSAGetLastError())
-{
-	LPSTR messageBuffer = nullptr;
+//string FormatLastError(DWORD errorCode = WSAGetLastError())
+//{
+//	LPSTR messageBuffer = nullptr;
+//
+//	FormatMessageA(
+//		FORMAT_MESSAGE_ALLOCATE_BUFFER |
+//		FORMAT_MESSAGE_FROM_SYSTEM |
+//		FORMAT_MESSAGE_IGNORE_INSERTS,
+//		nullptr, errorCode,
+//		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+//		(LPSTR)&messageBuffer, 0, nullptr
+//	);
+//
+//	string errorMessage;
+//	if (messageBuffer == nullptr) {
+//		char buffer[100];
+//		sprintf_s(buffer, sizeof(buffer), "Unknown error (code: %lu)", errorCode);
+//		errorMessage = buffer;
+//	}
+//	else {
+//		errorMessage = messageBuffer;
+//		LocalFree(messageBuffer);
+//	}
+//
+//	return errorMessage;
+//}
 
-	FormatMessageA(
-		FORMAT_MESSAGE_ALLOCATE_BUFFER |
-		FORMAT_MESSAGE_FROM_SYSTEM |
-		FORMAT_MESSAGE_IGNORE_INSERTS,
-		nullptr, errorCode,
-		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-		(LPSTR)&messageBuffer, 0, nullptr
-	);
-
-	string errorMessage;
-	if (messageBuffer == nullptr) {
-		char buffer[100];
-		sprintf_s(buffer, sizeof(buffer), "Unknown error (code: %lu)", errorCode);
-		errorMessage = buffer;
-	}
-	else {
-		errorMessage = messageBuffer;
-		LocalFree(messageBuffer);
-	}
-
-	return errorMessage;
-}
+CHAR* FormatLastError(DWORD dwError, CHAR szError[]);
 
 void main()
 {
 	setlocale(LC_ALL, "");
+	cout << "CLIENT" << endl<<endl;
+	DWORD dwError = 0;
+	CHAR szError[256] = {};
+
 	//1) Инициализация WinSock:
 	WSAData wsaData;
 	int iResult = 0;
@@ -73,9 +79,11 @@ void main()
 
 	//3) Создаем сокет:
 	SOCKET connect_socket = socket(target->ai_family, target->ai_socktype, target->ai_protocol);
+	dwError = WSAGetLastError();
 	if (connect_socket == INVALID_SOCKET)
 	{
-		cout << "SOCKET creation failed with error:\t" << FormatLastError() << endl;
+		cout << "SOCKET creation failed with error:\t" <<dwError<< /*FormatLastError() <<*/ endl;
+		cout << FormatLastError(dwError, szError) << endl;
 		freeaddrinfo(target);
 		WSACleanup();
 		return;
@@ -83,11 +91,15 @@ void main()
 
 	//4)Подключение к узлу
 	iResult = connect(connect_socket, target->ai_addr, target->ai_addrlen);
+	dwError = WSAGetLastError();
 	freeaddrinfo(target);
 	if (iResult == SOCKET_ERROR)
 	{
-		cout << "Enable to connect to server" << endl;
-		cout << "Connect failed with error:\t" << FormatLastError() << endl;
+		//cout << "Error " << dwError << ":\t";
+		cout << FormatLastError(dwError, szError)<<endl;
+		cout << "Enable to connect to server" << endl;		
+		//cout << lpError << endl;
+		//cout << "Connect failed with error:\t" << /*FormatLastError() <<*/ endl;
 		closesocket(connect_socket);
 		WSACleanup();
 		return;
@@ -96,9 +108,11 @@ void main()
 	//5) Отправка
 	CHAR send_buffer[MTU] = "Hello Server";
 	iResult = send(connect_socket, send_buffer, strlen(send_buffer), 0);
+	dwError = WSAGetLastError();
 	if (iResult == SOCKET_ERROR)
 	{
-		cout << "Send failed with error: " << FormatLastError() << endl;
+		cout << "Send failed with error: " <<WSAGetLastError() << /*FormatLastError() <<*/ endl;
+		cout << FormatLastError(dwError, szError) << endl;
 		closesocket(connect_socket);
 		WSACleanup();
 		return;
@@ -109,18 +123,40 @@ void main()
 	do
 	{
 		iResult = recv(connect_socket, recv_buffer, MTU, 0);
+		dwError = WSAGetLastError();
 		if (iResult > 0)
 			cout << "Bytes received: " << iResult << " Message: " << recv_buffer << endl;
 		else if (iResult == 0) cout << "Connection closed" << endl;
-		else cout << "Receive failed with error " << FormatLastError() << endl;
+		else cout << "Receive failed with "<<FormatLastError(dwError,szError) << /*FormatLastError() <<*/ endl;
 	} while (iResult > 0);
 
 	//Закрываем сокет на получение и отправку данных (разрываем TCP-соединение):
 	iResult = shutdown(connect_socket, SD_BOTH);
 	if (iResult == SOCKET_ERROR)
-		cout << "Shutdown failed with error " << FormatLastError() << endl;
+		cout << "Shutdown failed with "<<FormatLastError(WSAGetLastError(), szError) << /*FormatLastError() <<*/ endl;
 
 	//7)Освобождаем ресурсы WinSOCK
 	closesocket(connect_socket);
 	WSACleanup();
+}
+
+// FORMAT LAST ERROR 1:01:53
+
+CHAR* FormatLastError(DWORD dwError, CHAR szError[])
+{
+	LPSTR lpError = NULL;
+	FormatMessage
+	(
+		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+		NULL,
+		dwError,
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		(LPSTR)&lpError,
+		0,
+		NULL
+	);
+	//strcpy(szError, lpError);
+	sprintf(szError, "Error %i:%s", dwError, lpError);
+	LocalFree(lpError);
+	return szError;
 }

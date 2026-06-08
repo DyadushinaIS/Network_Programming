@@ -110,28 +110,33 @@ void main()
 
 	//5) Отправка
 	CHAR send_buffer[MTU] = "Hello Server";
-	iResult = send(connect_socket, send_buffer, strlen(send_buffer), 0);
-	dwError = WSAGetLastError();
-	if (iResult == SOCKET_ERROR)
-	{
-		cout << "Send failed with error: " <<WSAGetLastError() << /*FormatLastError() <<*/ endl;
-		cout << FormatLastError(dwError, szError) << endl;
-		closesocket(connect_socket);
-		WSACleanup();
-		return;
-	}
-
-	//6) Получение данных
-	CHAR recv_buffer[MTU] = {};
 	do
 	{
-		iResult = recv(connect_socket, recv_buffer, MTU, 0);
+		iResult = send(connect_socket, send_buffer, strlen(send_buffer), 0);
 		dwError = WSAGetLastError();
-		if (iResult > 0)
-			cout << "Bytes received: " << iResult << " Message: " << recv_buffer << endl;
-		else if (iResult == 0) cout << "Connection closed" << endl;
-		else cout << "Receive failed with "<<FormatLastError(dwError,szError) << /*FormatLastError() <<*/ endl;
-	} while (iResult > 0);
+		if (iResult == SOCKET_ERROR)
+		{
+			cout << "Send failed with error: " << WSAGetLastError() << /*FormatLastError() <<*/ endl;
+			cout << FormatLastError(dwError, szError) << endl;
+			closesocket(connect_socket);
+			WSACleanup();
+			return;
+		}
+
+		//6) Получение данных
+		CHAR recv_buffer[MTU] = {};
+		do
+		{
+			iResult = recv(connect_socket, recv_buffer, MTU, 0);
+			dwError = WSAGetLastError();
+			if (iResult > 0)
+				cout << "Bytes received: " << iResult << " Message: " << recv_buffer << endl;
+			else if (iResult == 0) cout << "Connection closed" << endl;
+			else cout << "Receive failed with " << FormatLastError(dwError, szError) << /*FormatLastError() <<*/ endl;
+		} while (iResult > 0);
+		cout << "Введите сообщение: ";
+		cin.getline(send_buffer,MTU);
+	} while (strcmp(send_buffer,"exit")!=0);
 
 	//Закрываем сокет на получение и отправку данных (разрываем TCP-соединение):
 	iResult = shutdown(connect_socket, SD_BOTH);

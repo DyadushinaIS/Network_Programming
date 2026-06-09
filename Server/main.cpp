@@ -170,6 +170,8 @@ using namespace std;
 
 #define MTU 1500
 
+VOID ClientHandle(SOCKET client_socket);
+
 void main()
 {
 	setlocale(LC_ALL, "");
@@ -248,28 +250,8 @@ void main()
 	cout << inet_ntoa(client_address.sin_addr) << ":" << ntohs(client_address.sin_port) << endl;
 
 	//7) Получаем данные от клиента
-	CHAR send_buffer[MTU] = "Hello, client!";
-	INT iReceivedBytes = 0;
-	INT iSentBytes = 0;
-	do
-	{
-		CHAR recv_buffer[MTU] = {};
-		iReceivedBytes = recv(client_socket, recv_buffer, MTU, 0);
-		//функция recv() - Receive ожидает получения данных по указанному сокету и возвращает количество полученных байт
-		if (iReceivedBytes > 0)
-		{
-			cout << "Received " << iReceivedBytes << " " << recv_buffer << endl;
-			iSentBytes = send(client_socket, send_buffer, strlen(send_buffer), 0);
-			if (iSentBytes == SOCKET_ERROR)	cout << "Send failed with error: " << WSAGetLastError() << endl;
-			else cout << iSentBytes << " Bytes sent" << endl;
-		}
-		else if (iReceivedBytes == 0) cout << "Connection closing..." << endl;
-		else cout << "Receive failed with error " << WSAGetLastError() << endl;
-	} while (iReceivedBytes > 0);
+	ClientHandle(client_socket);
 
-	//8) Разрываем TCP-соединение
-	iResult = shutdown(client_socket, SD_BOTH);
-	if (iResult != SOCKET_ERROR) cout << "shutdown failed with error:\t" << WSAGetLastError();	
 
 	//9)Освобождаем ресурсы, занятые WinSOCK
 	closesocket(listen_socket);
@@ -277,4 +259,35 @@ void main()
 	WSACleanup();
 }
 
-	//--------------01:54:04-------------------------    ЗА 04 ИЮНЯ!!!!! (WINSOCK DAY 3)
+VOID ClientHandle(SOCKET client_socket)
+{
+	INT iResult = 0;
+	DWORD dwError=0;
+	CHAR szError[256] = {};
+	CHAR send_buffer[MTU] = "Hello, client!";
+	INT iReceivedBytes = 0;
+	INT iSentBytes = 0;
+	do
+	{
+		CHAR recv_buffer[MTU] = {};
+		iReceivedBytes = recv(client_socket, recv_buffer, MTU, 0);
+		dwError = WSAGetLastError();
+		//функция recv() - Receive ожидает получения данных по указанному сокету и возвращает количество полученных байт
+		if (iReceivedBytes > 0)
+		{
+			cout << "Received " << iReceivedBytes << " " << recv_buffer << endl;
+			iSentBytes = send(client_socket, send_buffer, strlen(send_buffer), 0);
+			if (iSentBytes == SOCKET_ERROR)	cout << "Send failed with error: " << FormatLastError(WSAGetLastError(), szError) << endl;
+			else cout << iSentBytes << " Bytes sent" << endl;
+		}
+		else if (iReceivedBytes == 0) cout << "Connection closing..." << endl;
+		else cout << "Receive failed with error " << FormatLastError (dwError,szError) << endl;
+	} while (iReceivedBytes > 0);
+
+	//8) Разрываем TCP-соединение
+	iResult = shutdown(client_socket, SD_BOTH);
+	dwError = WSAGetLastError();
+	if (iResult != SOCKET_ERROR) cout << "shutdown failed with error:\t" << FormatLastError(dwError, szError);
+
+}
+//54:41

@@ -151,6 +151,3 @@ void main()
 	closesocket(connect_socket);
 	WSACleanup();
 }
-
-// FORMAT LAST ERROR 1:01:53
-

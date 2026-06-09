@@ -125,7 +125,7 @@ void main()
 
 		//6) Получение данных
 		CHAR recv_buffer[MTU] = {};
-		do
+		//do
 		{
 			iResult = recv(connect_socket, recv_buffer, MTU, 0);
 			dwError = WSAGetLastError();
@@ -133,9 +133,13 @@ void main()
 				cout << "Bytes received: " << iResult << " Message: " << recv_buffer << endl;
 			else if (iResult == 0) cout << "Connection closed" << endl;
 			else cout << "Receive failed with " << FormatLastError(dwError, szError) << /*FormatLastError() <<*/ endl;
-		} while (iResult > 0);
+		} //while (iResult > 0);
+		ZeroMemory(send_buffer, MTU);
+		ZeroMemory(recv_buffer, MTU);
 		cout << "Введите сообщение: ";
+		SetConsoleCP(1251);
 		cin.getline(send_buffer,MTU);
+		SetConsoleCP(866);
 	} while (strcmp(send_buffer,"exit")!=0);
 
 	//Закрываем сокет на получение и отправку данных (разрываем TCP-соединение):

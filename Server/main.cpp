@@ -248,12 +248,12 @@ void main()
 	cout << inet_ntoa(client_address.sin_addr) << ":" << ntohs(client_address.sin_port) << endl;
 
 	//7) Получаем данные от клиента
-	CHAR recv_buffer[MTU] = {};
 	CHAR send_buffer[MTU] = "Hello, client!";
 	INT iReceivedBytes = 0;
 	INT iSentBytes = 0;
 	do
 	{
+		CHAR recv_buffer[MTU] = {};
 		iReceivedBytes = recv(client_socket, recv_buffer, MTU, 0);
 		//функция recv() - Receive ожидает получения данных по указанному сокету и возвращает количество полученных байт
 		if (iReceivedBytes > 0)

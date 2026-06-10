@@ -1,153 +1,133 @@
 ﻿#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
-//если с библиотекой Winsock2.h подключается файл Windows.h или iphlpapi.h,
-//то они тоже подключают файл Winsock2.h, что приводит к конфликтам
-//для того, чтолбы <Windows.h> и <iphpapi> не подтягивали Winsock2.h, создается макроопределение
+//Если с библиотекой <WinSOCK2.h> подключается файл <Windows.h> или <IPhlpAPI>,
+//то они тоже подключают файл <WinSOCK2.h>, что приводит к конфликтам.
+//Для того чтобы <Windows.h> и <IPhlpAPI.h> не подтягивали WinSOCK, создается макроопределение.
 #endif // !WIN32_LEAN_AND_MEAN
-#define MTU 1500		//Maximum transfer Unit - Максимально возможный размер Ethernet-кадра
 
 
-#include <iostream>
-#include <Windows.h>
-#include <Winsock2.h>
-#include <WS2tcpip.h>
-#include <iphlpapi.h>
-
+#include<iostream>
+#include<Windows.h>
+#include<WinSock2.h>
+#include<WS2tcpip.h>
+#include<iphlpapi.h>
 #include<FormatLastError.h>
+#include<Messages.h>
+#define DECLINE_MESSAGE	 "Подключение невозможно, поскольку все места заняты, попробуйте позже"
 using namespace std;
 
-#pragma comment(lib,"WS2_32.lib") //встраиваем статическую библиотеку для заголовка <WS2tcpip.h>
-#pragma comment(lib,"FormatLastError.lib")
+#pragma comment(lib, "WS2_32.lib")	//Встраиваем статическую библиотеку, для заголовка <WS2TCPIP.h>
+#pragma comment(lib, "FormatLastError.lib")
 
-//string FormatLastError(DWORD errorCode = WSAGetLastError())
-//{
-//	LPSTR messageBuffer = nullptr;
-//
-//	FormatMessageA(
-//		FORMAT_MESSAGE_ALLOCATE_BUFFER |
-//		FORMAT_MESSAGE_FROM_SYSTEM |
-//		FORMAT_MESSAGE_IGNORE_INSERTS,
-//		nullptr, errorCode,
-//		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-//		(LPSTR)&messageBuffer, 0, nullptr
-//	);
-//
-//	string errorMessage;
-//	if (messageBuffer == nullptr) {
-//		char buffer[100];
-//		sprintf_s(buffer, sizeof(buffer), "Unknown error (code: %lu)", errorCode);
-//		errorMessage = buffer;
-//	}
-//	else {
-//		errorMessage = messageBuffer;
-//		LocalFree(messageBuffer);
-//	}
-//
-//	return errorMessage;
-//}
-
-
+#define MTU	1500	//Maximum Transfer Unit - Максимально-возможный размер Ethernet-кадра
 
 void main()
 {
 	setlocale(LC_ALL, "");
-	cout << "CLIENT" << endl<<endl;
+	cout << "CLIENT" << endl;
 	DWORD dwError = 0;
 	CHAR szError[256] = {};
 
-	//1) Инициализация WinSock:
+	//1) Инициализация WinSOCK:
 	WSAData wsaData;
 	int iResult = 0;
 	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
 	if (iResult != 0)
 	{
-		cout << "WinSOCK init failed with code: " << iResult << endl;
+		cout << "WinSOCK init failed with code: " << iResult;
 		return;
 	}
 
-	//2) Определяем параметры подключения
-	addrinfo hints;
+	//2) Определяем параметры подключения:
+	addrinfo  hints;
 	addrinfo* target;
-	ZeroMemory(&hints, sizeof(hints));	//обнуляем экземплярн структуры 
+	ZeroMemory(&hints, sizeof(hints));	//Обнуляем экземпляр стуктуры
 	hints.ai_family = AF_INET;			//Стек протоколов TCP/IPv4
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;	//Определяем протокол транспортного уровня
 	iResult = getaddrinfo("127.0.0.1", "27015", &hints, &target);
 	if (iResult != 0)
 	{
-		cout << "getaddresinfo() failed with code " << iResult << endl;
+		cout << "getaddressinfo() failed with code " << iResult << endl;
+		freeaddrinfo(target);
 		WSACleanup();
 		return;
 	}
 
 	//3) Создаем сокет:
+	//SOCKET - тип данных;
+	//socket() - это функция;
 	SOCKET connect_socket = socket(target->ai_family, target->ai_socktype, target->ai_protocol);
 	dwError = WSAGetLastError();
 	if (connect_socket == INVALID_SOCKET)
 	{
-		cout << "SOCKET creation failed with error:\t" <<dwError<< /*FormatLastError() <<*/ endl;
+		cout << "SOCKET creation failed with error:\t" << dwError << endl;
 		cout << FormatLastError(dwError, szError) << endl;
 		freeaddrinfo(target);
 		WSACleanup();
 		return;
 	}
 
-	//4)Подключение к узлу
+	//4) Подключаемся к узлу:
 	iResult = connect(connect_socket, target->ai_addr, target->ai_addrlen);
 	dwError = WSAGetLastError();
 	freeaddrinfo(target);
 	if (iResult == SOCKET_ERROR)
 	{
 		//cout << "Error " << dwError << ":\t";
-		cout << FormatLastError(dwError, szError)<<endl;
-		cout << "Enable to connect to server" << endl;		
+		cout << FormatLastError(dwError, szError) << endl;
 		//cout << lpError << endl;
-		//cout << "Connect failed with error:\t" << /*FormatLastError() <<*/ endl;
+
+		//	WSAGetLastError() в обязатенльном порядке должна быть вызвана непосредственно 
+		//	после вывоза функции, которая потенциально может выполниться с ошибкой.
+		cout << "Unable to connect to server" << endl;
 		closesocket(connect_socket);
+		//freeaddrinfo(target);
 		WSACleanup();
 		return;
 	}
+	//freeaddrinfo(target);
 
-	//5) Отправка
-	CHAR send_buffer[MTU] = "Hello Server";
+	//5) Отправка:
+	CHAR send_buffer[MTU] = "Привет Server";
+	CHAR recv_buffer[MTU] = {};
 	do
 	{
 		iResult = send(connect_socket, send_buffer, strlen(send_buffer), 0);
 		dwError = WSAGetLastError();
 		if (iResult == SOCKET_ERROR)
 		{
-			cout << "Send failed with error: " << WSAGetLastError() << /*FormatLastError() <<*/ endl;
+			cout << "Send failed with error: " << WSAGetLastError() << endl;
 			cout << FormatLastError(dwError, szError) << endl;
 			closesocket(connect_socket);
 			WSACleanup();
 			return;
 		}
 
-		//6) Получение данных
-		CHAR recv_buffer[MTU] = {};
+		//6) Получение данных:
+		ZeroMemory(recv_buffer, MTU);
 		//do
 		{
 			iResult = recv(connect_socket, recv_buffer, MTU, 0);
 			dwError = WSAGetLastError();
 			if (iResult > 0)
-				cout << "Bytes received: " << iResult << " Message: " << recv_buffer << endl;
-			else if (iResult == 0) cout << "Connection closed" << endl;
-			else cout << "Receive failed with " << FormatLastError(dwError, szError) << /*FormatLastError() <<*/ endl;
+				cout << "Bytes received: " << iResult << "Message: " << recv_buffer << endl;
+			else if (iResult == 0)cout << "Connection closed" << endl;
+			else cout << "Receive failed with " << FormatLastError(dwError, szError) << endl;
+
 		} //while (iResult > 0);
 		ZeroMemory(send_buffer, MTU);
-		ZeroMemory(recv_buffer, MTU);
-		cout << "Введите сообщение: ";
+		if (strcmp(recv_buffer, DECLINE_MESSAGE) != 0)	cout << "Введите сообщение: ";
+		else cout << "Для выхода нажмите 'Enter'" << endl;
 		SetConsoleCP(1251);
-		cin.getline(send_buffer,MTU);
+		cin.getline(send_buffer, MTU);
 		SetConsoleCP(866);
-	} while (strcmp(send_buffer,"exit")!=0);
+	} while (strcmp(send_buffer, "exit") != 0 && strcmp(recv_buffer, DECLINE_MESSAGE) != 0);//https://legacy.cplusplus.com/reference/cstring/strcmp/
 
-	//Закрываем сокет на получение и отправку данных (разрываем TCP-соединение):
-	iResult = shutdown(connect_socket, SD_BOTH);
+	iResult = shutdown(connect_socket, SD_BOTH);//Закрываем сокет на получение и отправку данных (разрываем TCP-соединение):
 	if (iResult == SOCKET_ERROR)
-		cout << "Shutdown failed with "<<FormatLastError(WSAGetLastError(), szError) << /*FormatLastError() <<*/ endl;
-
-	//7)Освобождаем ресурсы WinSOCK
+		cout << "Shutdown failed with " << FormatLastError(WSAGetLastError(), szError) << endl;
+	//7) Освобождаем ресурсы WinSOCK:
 	closesocket(connect_socket);
 	WSACleanup();
 }

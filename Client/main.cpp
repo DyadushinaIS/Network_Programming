@@ -146,9 +146,16 @@ VOID Receive(SOCKET connect_socket)
 		iResult = recv(connect_socket, recv_buffer, MTU, 0);
 		dwError = WSAGetLastError();
 		if (iResult > 0)
-			cout << "Bytes received: " << iResult << "Message: " << recv_buffer << endl;
-		else if (iResult == 0)cout << "Connection closed" << endl;
-		else cout << "Receive failed with " << FormatLastError(dwError, szError) << endl;
+		{
+			SetConsoleCP(1251);
+			cout << "\n" << recv_buffer << endl;
+			cout << "Вы: ";
+			SetConsoleCP(866);
+		}
+		else if (iResult == 0)
+			cout << "\nСоединение закрыто сервером" << endl;
+		else
+			cout << "\nОшибка приема: " << FormatLastError(dwError, szError) << endl;
 
 	} while (iResult > 0);
 }

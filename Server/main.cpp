@@ -19,14 +19,31 @@ using namespace std;
 #define MTU				 1500
 #define MAX_CONNECTIONS		3
 
+//создаем структуру, чтобы хранить сразу всю информацию про IP, порты и прочее
+
+//struct ABOUT_CLIENTS 
+//{
+//	SOCKET socket;
+//	DWORD threadID;
+//	CHAR address[32];
+//	USHORT port;
+//};
+
+//ABOUT_CLIENTS client[MAX_CONNECTIONS] = {};
+INT g_ActiveClients = 0;
+CHAR client_addresses[MAX_CONNECTIONS][32];  // IP-адреса клиентов
+USHORT client_ports[MAX_CONNECTIONS];         // Порты клиентов
+
+// Объявления функций
 VOID ShowActiveClients();
-VOID ClientHandle(SOCKET client_socket);
+VOID ClientHandle(LPVOID param);  // Изменено с SOCKET на LPVOID
+VOID Shift(INT index);
+INT GetClientIndex(DWORD dwThreadID);
+VOID Broadcast(CHAR sz_message[], INT sender_index);
 
 SOCKET client_sockets[MAX_CONNECTIONS] = {};
 DWORD  dwThreadIDs[MAX_CONNECTIONS] = {};		//Идентификаторы потоков
 HANDLE hThreads[MAX_CONNECTIONS] = {};			//Дескрипторы потов
-
-INT g_ActiveClients = 0;
 
 void main()
 {
@@ -116,21 +133,47 @@ void main()
 		//ClientHandle(client_socket);
 		if (g_ActiveClients < MAX_CONNECTIONS)
 		{
-			client_sockets[g_ActiveClients] = client_socket;	//сохраняем сокет подключаемого клиента в массив
+			// Получаем информацию об адресе клиента
+			SOCKADDR_IN client_address;
+			INT client_address_len = sizeof(client_address);
+			getpeername(client_socket, (SOCKADDR*)&client_address, &client_address_len);
+
+			// Сохраняем сокет
+			client_sockets[g_ActiveClients] = client_socket;
+
+			// Сохраняем адрес и порт
+			inet_ntop(AF_INET, &client_address.sin_addr,
+				client_addresses[g_ActiveClients], 32);
+			client_ports[g_ActiveClients] = ntohs(client_address.sin_port);
+
+			// Передаем индекс в поток
+			INT* client_index = new INT(g_ActiveClients);
+
+			// Создаем поток - явно приводим функцию к нужному типу
 			hThreads[g_ActiveClients] = CreateThread
 			(
-				NULL,	//атрибуты безопасности;
-				0,		//размер стека создаваемого потока. 0 - совместно используется основной стек программы;
-				(LPTHREAD_START_ROUTINE)ClientHandle,	//Указатель на функцию, которая будет выполняться в потоке;
-				//DONE:Проветрить
-				(LPVOID)client_sockets[g_ActiveClients],//Параметр, передаваемый в функцию. Функция, запускаемая в потоке должна принимать ???ОДИН??? И ТОЛЬКО ОДИН ПАРАМЕТР!!!
 				NULL,
+				0,
+				(LPTHREAD_START_ROUTINE)ClientHandle,
+				(LPVOID)client_index,
+				0,
 				&dwThreadIDs[g_ActiveClients]
 			);
-			g_ActiveClients++;
-			//ShowActiveClients();
-			Sleep(10);
-			cout << "Количество клиентов: " << g_ActiveClients << endl;
+
+			if (hThreads[g_ActiveClients] == NULL)
+			{
+				cout << "Ошибка создания потока: " << GetLastError() << endl;
+				delete client_index;
+			}
+			else
+			{
+				cout << "Клиент подключен: [" << client_addresses[g_ActiveClients] << ":"
+					<< client_ports[g_ActiveClients] << "]" << endl;
+
+				g_ActiveClients++;
+				Sleep(10);
+				cout << "Количество клиентов: " << g_ActiveClients << endl;
+			}
 		}
 		else
 		{
@@ -152,31 +195,72 @@ void main()
 	freeaddrinfo(target);
 	WSACleanup();
 }
+//INT GetClientIndex(DWORD dwThreadID)
+//{
+//	for (INT i = 0; i < g_ActiveClients; i++)
+//	{
+//		if (dwThreadID == dwThreadIDs[i])return i;
+//	}
+//	return -1;
+//}
+
 INT GetClientIndex(DWORD dwThreadID)
 {
 	for (INT i = 0; i < g_ActiveClients; i++)
 	{
-		if (dwThreadID == dwThreadIDs[i])return i;
+		if (dwThreadID == dwThreadIDs[i])
+			return i;
 	}
 	return -1;
 }
+
+
+//VOID Shift(INT index)
+//{
+//	if (index == -1)return;
+//	CloseHandle(hThreads[index]);
+//	for (INT i = index; i < g_ActiveClients; i++)
+//	{
+//		client_sockets[i] = client_sockets[i + 1];
+//		dwThreadIDs[i] = dwThreadIDs[i + 1];
+//		hThreads[i] = hThreads[i + 1];
+//	}
+//	client_sockets[MAX_CONNECTIONS - 1] = NULL;
+//	dwThreadIDs[MAX_CONNECTIONS - 1] = NULL;
+//	hThreads[MAX_CONNECTIONS - 1] = NULL;
+//	g_ActiveClients--;
+//	ShowActiveClients();
+//	cout << "Количество клиентов: " << g_ActiveClients << endl;
+//}
+
 VOID Shift(INT index)
 {
-	if (index == -1)return;
+	if (index == -1) return;
+
 	CloseHandle(hThreads[index]);
-	for (INT i = index; i < g_ActiveClients; i++)
+
+	for (INT i = index; i < g_ActiveClients - 1; i++)
 	{
 		client_sockets[i] = client_sockets[i + 1];
 		dwThreadIDs[i] = dwThreadIDs[i + 1];
 		hThreads[i] = hThreads[i + 1];
+		// Копируем адреса и порты
+		strcpy_s(client_addresses[i], client_addresses[i + 1]);
+		client_ports[i] = client_ports[i + 1];
 	}
-	client_sockets[MAX_CONNECTIONS - 1] = NULL;
-	dwThreadIDs[MAX_CONNECTIONS - 1] = NULL;
-	hThreads[MAX_CONNECTIONS - 1] = NULL;
+
+	// Очищаем последние элементы
+	client_sockets[g_ActiveClients - 1] = INVALID_SOCKET;
+	dwThreadIDs[g_ActiveClients - 1] = 0;
+	hThreads[g_ActiveClients - 1] = NULL;
+	memset(client_addresses[g_ActiveClients - 1], 0, 32);
+	client_ports[g_ActiveClients - 1] = 0;
+
 	g_ActiveClients--;
 	ShowActiveClients();
 	cout << "Количество клиентов: " << g_ActiveClients << endl;
 }
+
 VOID ShowActiveClients()
 {
 	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -188,48 +272,124 @@ VOID ShowActiveClients()
 	cout << "Количество клиентов: " << g_ActiveClients << endl;
 	SetConsoleCursorPosition(hConsole, info.dwCursorPosition);
 }
-VOID Broadcast(CHAR sz_message[], INT client_index)
+//VOID Broadcast(CHAR sz_message[], INT client_index)
+//{
+//	INT iResult = 0;
+//	for (INT i = 0; i < g_ActiveClients; i++)
+//	{
+//		if (i != client_index)
+//			iResult = send(client_sockets[i], sz_message, strlen(sz_message), 0);
+//	}
+//}
+
+VOID Broadcast(CHAR sz_message[], INT sender_index)
 {
 	INT iResult = 0;
+	CHAR formatted_message[MTU + 100] = {};
+
+	// Проверяем, что отправитель существует
+	if (sender_index >= 0 && sender_index < g_ActiveClients)
+	{
+		// Форматируем сообщение с информацией об отправителе
+		sprintf_s(formatted_message, sizeof(formatted_message), "[%s:%d] %s",
+			client_addresses[sender_index], client_ports[sender_index], sz_message);
+	}
+	else
+	{
+		strcpy_s(formatted_message, sz_message);
+	}
+
+	// Отправляем всем клиентам, кроме отправителя
 	for (INT i = 0; i < g_ActiveClients; i++)
 	{
-		if (i != client_index)
-			iResult = send(client_sockets[i], sz_message, strlen(sz_message), 0);
+		if (i != sender_index && client_sockets[i] != INVALID_SOCKET)
+		{
+			iResult = send(client_sockets[i], formatted_message, strlen(formatted_message), 0);
+			if (iResult == SOCKET_ERROR)
+			{
+				cout << "Broadcast to client " << i << " failed" << endl;
+			}
+		}
 	}
 }
-VOID ClientHandle(SOCKET client_socket)
+//VOID ClientHandle(SOCKET client_socket)
+//{
+//	INT iResult = 0;
+//	DWORD dwError = 0;
+//	CHAR szError[256] = {};
+//	CHAR send_buffer[MTU] = "Hello client";
+//	CHAR recv_buffer[MTU] = {};
+//	INT iReceivedBytes = 0;
+//	INT iSentBytes = 0;
+//	do
+//	{
+//		ZeroMemory(recv_buffer, MTU);
+//		cout << &recv_buffer << endl;
+//		iReceivedBytes = recv(client_socket, recv_buffer, MTU, 0);
+//		dwError = WSAGetLastError();
+//		//Функция recv() - Receive ожидает получение данных по указанному сокету, и возвращает количество полученных Байт.
+//		if (iReceivedBytes > 0)Broadcast(recv_buffer, GetClientIndex(GetCurrentThreadId()));
+//		{
+//			//sprintf(send_buffer, "\x1b[32m%s\x1b[0m", recv_buffer);
+//			/*cout << "Received " << iReceivedBytes << " " << recv_buffer << endl;
+//			iSentBytes = send(client_socket, recv_buffer, strlen(recv_buffer), 0);
+//			if (iSentBytes == SOCKET_ERROR)	cout << "Send failed with error:\t" << WSAGetLastError() << endl;
+//			else cout << iSentBytes << " Bytes sent" << endl;*/
+//		}
+//		//else if (iReceivedBytes == 0) cout << "Connection closing..." << endl;
+//		//else cout << "Receive failed with error: " << FormatLastError(dwError, szError) << endl;
+//	} while (iReceivedBytes > 0 && strcmp(recv_buffer, "exit") != 0);
+//
+//	//8) Разрываем TCP-соединение:
+//	iResult = shutdown(client_socket, SD_BOTH);
+//	dwError = WSAGetLastError();
+//	if (iResult != SOCKET_ERROR)cout << "shutdown failed with error:\t" << FormatLastError(dwError, szError) << endl;
+//	closesocket(client_socket);
+//	Shift(GetClientIndex(GetCurrentThreadId()));
+//	ExitThread(0);
+//}
+
+VOID ClientHandle(LPVOID param)
 {
+	INT client_index = *(INT*)param;
+	delete (INT*)param;  // Освобождаем память
+
+	SOCKET client_socket = client_sockets[client_index];
+
 	INT iResult = 0;
 	DWORD dwError = 0;
 	CHAR szError[256] = {};
-	CHAR send_buffer[MTU] = "Hello client";
 	CHAR recv_buffer[MTU] = {};
 	INT iReceivedBytes = 0;
-	INT iSentBytes = 0;
+
 	do
 	{
 		ZeroMemory(recv_buffer, MTU);
-		cout << &recv_buffer << endl;
 		iReceivedBytes = recv(client_socket, recv_buffer, MTU, 0);
 		dwError = WSAGetLastError();
-		//Функция recv() - Receive ожидает получение данных по указанному сокету, и возвращает количество полученных Байт.
-		if (iReceivedBytes > 0)Broadcast(recv_buffer, GetClientIndex(GetCurrentThreadId()));
+
+		if (iReceivedBytes > 0)
 		{
-			//sprintf(send_buffer, "\x1b[32m%s\x1b[0m", recv_buffer);
-			/*cout << "Received " << iReceivedBytes << " " << recv_buffer << endl;
-			iSentBytes = send(client_socket, recv_buffer, strlen(recv_buffer), 0);
-			if (iSentBytes == SOCKET_ERROR)	cout << "Send failed with error:\t" << WSAGetLastError() << endl;
-			else cout << iSentBytes << " Bytes sent" << endl;*/
+			// Убираем лишние символы перевода строки, если они есть
+			recv_buffer[strcspn(recv_buffer, "\r\n")] = 0;
+
+			// Показываем на сервере от кого пришло сообщение
+			cout << "\nСообщение от [" << client_addresses[client_index] << ":"
+				<< client_ports[client_index] << "]: " << recv_buffer << endl;
+
+			// Отправляем всем клиентам с указанием отправителя
+			Broadcast(recv_buffer, client_index);
 		}
-		//else if (iReceivedBytes == 0) cout << "Connection closing..." << endl;
-		//else cout << "Receive failed with error: " << FormatLastError(dwError, szError) << endl;
+
 	} while (iReceivedBytes > 0 && strcmp(recv_buffer, "exit") != 0);
 
-	//8) Разрываем TCP-соединение:
+	// Разрываем TCP-соединение
 	iResult = shutdown(client_socket, SD_BOTH);
 	dwError = WSAGetLastError();
-	if (iResult != SOCKET_ERROR)cout << "shutdown failed with error:\t" << FormatLastError(dwError, szError) << endl;
+	if (iResult == SOCKET_ERROR)
+		cout << "shutdown failed with error:\t" << FormatLastError(dwError, szError) << endl;
+
 	closesocket(client_socket);
-	Shift(GetClientIndex(GetCurrentThreadId()));
+	Shift(client_index);
 	ExitThread(0);
 }

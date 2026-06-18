@@ -6,11 +6,10 @@ using std::endl;
 
 #define Escape	27
 #define Enter	13
-#define KeyI	105   // <-- ДОБАВЛЕНО: ASCII-код клавиши 'i'
+#define KeyI	105   // DONE
 
 #define MIN_TANK_CAPACITY	 20
 #define MAX_TANK_CAPACITY	120
-
 class Tank
 {
 	const int CAPACITY;
@@ -23,6 +22,7 @@ public:
 		capacity
 	)
 	{
+		//this->CAPACITY = capacity;
 		this->fuel_level = 0;
 		cout << "Tank is ready " << this << endl;
 	}
@@ -57,13 +57,11 @@ public:
 
 #define MIN_ENGINE_CONSUMPTION	 4
 #define MAX_ENGINE_CONSUMPTION	30
-
 class Engine
 {
-	const double CONSUMPTION;
-	double consumption_per_second;
-	bool is_running;   // <-- ДОБАВЛЕНО: флаг состояния двигателя
-
+	const double CONSUMPTION;		//Расход на 100км.
+	double consumption_per_second;	//Расход за 1 секунду.
+	bool is_running;   // DONE
 public:
 	Engine(double consumption) :CONSUMPTION
 	(
@@ -72,8 +70,8 @@ public:
 		consumption
 	)
 	{
-		consumption_per_second = CONSUMPTION * 3e-5;
-		is_running = false;   // <-- ДОБАВЛЕНО: инициализация флага
+		consumption_per_second = CONSUMPTION * 3e-5;	//3 * 10^(-5)
+		is_running = false;   // DONE
 		cout << "Engine is ready:\t" << this << endl;
 	}
 	~Engine()
@@ -81,7 +79,7 @@ public:
 		cout << "Engine is over:\t" << this << endl;
 	}
 
-	// <-- ДОБАВЛЕНО: методы для управления двигателем
+	// DONE
 	void start()
 	{
 		is_running = true;
@@ -94,8 +92,7 @@ public:
 	{
 		return is_running;
 	}
-	// <-- ДОБАВЛЕНО: геттер для расхода за секунду
-	double get_consumption_per_second() const
+	double get_consumption_per_second() const   // DONE
 	{
 		return consumption_per_second;
 	}
@@ -113,10 +110,10 @@ class Car
 	Tank tank;
 	bool driver_inside;
 public:
-	Car(double consumtion, int capacity = 50) : engine(consumtion), tank(capacity)
+	Car(double consumtion, int capacity = 50) :engine(consumtion), tank(capacity)
 	{
 		driver_inside = false;
-		tank.fill(1);   // <-- ДОБАВЛЕНО: заливаем 1 литр топлива при создании
+		tank.fill(1);   // DONE
 		cout << "Your car is ready to go, press Enter to get in" << this << endl;
 	}
 	~Car()
@@ -126,19 +123,34 @@ public:
 	void get_in()
 	{
 		driver_inside = true;
-		system("CLS");   // <-- ДОБАВЛЕНО: очищаем экран при входе
+		system("CLS");   // DONE
 		panel();
 	}
 	void get_out()
 	{
 		driver_inside = false;
 	}
+	void control()
+	{
+		char key = 0;
+		do
+		{
+			key = _getch();	//Функция _getch() ожидает нажатия клавиши и возвращает ASCII-код нажатой клавиши.
+			switch (key)
+			{
+			case Enter:
+				if (driver_inside)get_out();
+				else get_in();
+				break;
+			}
+		} while (key != Escape);
+	}
 
 	void panel()
 	{
-		char key = 0;
+		char key = 0;   // DONE
 
-		// <-- ДОБАВЛЕНО: вывод информации и подсказок
+		// DONE			Вывод информации и подсказок
 		cout << "Fuel level: " << tank.get_fuel_level() << " liters.\n";
 		cout << "Engine: " << (engine.get_running() ? "RUNNING" : "STOPPED") << endl;
 		cout << "\nCommands:" << endl;
@@ -148,24 +160,22 @@ public:
 
 		while (driver_inside)
 		{
-			// <-- ДОБАВЛЕНО: расход топлива
+			// DONE: расход топлива
 			if (engine.get_running())
 			{
 				double fuel_before = tank.get_fuel_level();
 				tank.give_fuel(engine.get_consumption_per_second());
 
-				// <-- ДОБАВЛЕНО: проверка окончания топлива
-				if (tank.get_fuel_level() == 0 && fuel_before > 0)
+				if (tank.get_fuel_level() == 0 && fuel_before > 0)   // DONE
 				{
 					engine.stop();
 					cout << "\nДвигатель остановлен, так как закончилось топливо!" << endl;
 				}
 
-				// <-- ДОБАВЛЕНО: обновление уровня топлива
-				cout << "\rFuel level: " << tank.get_fuel_level() << " liters.    ";
+				cout << "\rFuel level: " << tank.get_fuel_level() << " liters.    ";   // DONE
 			}
 
-			// <-- ДОБАВЛЕНО: проверка нажатия клавиш
+			// DONE: проверка нажатия клавиш
 			if (_kbhit())
 			{
 				key = _getch();
@@ -174,7 +184,7 @@ public:
 				case Enter:
 					driver_inside = false;
 					break;
-				case KeyI:   // <-- ДОБАВЛЕНО: обработка клавиши 'i'
+				case KeyI:   // DONE
 					if (engine.get_running())
 					{
 						engine.stop();
@@ -189,8 +199,7 @@ public:
 						}
 						else
 						{
-							// <-- ДОБАВЛЕНО: сообщение о недостатке топлива
-							cout << "\nНет топлива! Двигатель не может запуститься.    ";
+							cout << "\nНет топлива! Двигатель не может запуститься.    ";   // DONE
 						}
 					}
 					break;
@@ -200,27 +209,9 @@ public:
 				}
 			}
 
-			// <-- ДОБАВЛЕНО: задержка для имитации реального времени
+			// DONE
 			for (int i = 0; i < 10000000; i++);
 		}
-	}
-
-	void control()
-	{
-		char key = 0;
-		do
-		{
-			key = _getch();
-			switch (key)
-			{
-			case Enter:
-				if (driver_inside)
-					get_out();
-				else
-					get_in();
-				break;
-			}
-		} while (key != Escape);
 	}
 };
 
@@ -249,4 +240,5 @@ void main()
 
 	Car bmw(10, 70);
 	bmw.control();
+
 }

@@ -1,26 +1,26 @@
 ﻿#include<iostream>
 #include<conio.h>
+#include<chrono>
+#include <thread>
+using namespace std::chrono_literals;
 using std::cin;
 using std::cout;
 using std::endl;
 
-#define Escape	27
-#define Enter	13
-#define KeyI	105   // DONE
-
-#define MIN_TANK_CAPACITY	 20
+#define MIN_TANK_CAPACITY	20
 #define MAX_TANK_CAPACITY	120
 class Tank
 {
 	const int CAPACITY;
 	double fuel_level;
 public:
-	Tank(int capacity) :CAPACITY
-	(
-		capacity < MIN_TANK_CAPACITY ? MIN_TANK_CAPACITY :
-		capacity > MAX_TANK_CAPACITY ? MAX_TANK_CAPACITY :
-		capacity
-	)
+	Tank(int capacity):
+		CAPACITY
+		(
+			capacity<MIN_TANK_CAPACITY?MIN_TANK_CAPACITY:
+			capacity>MAX_TANK_CAPACITY?MAX_TANK_CAPACITY:
+			capacity
+		)
 	{
 		//this->CAPACITY = capacity;
 		this->fuel_level = 0;
@@ -29,79 +29,63 @@ public:
 	~Tank()
 	{
 		cout << "Tank is over " << this << endl;
-	}
+	};
+
 	double get_fuel_level()const
 	{
 		return fuel_level;
 	}
 	void fill(int amount)
 	{
-		if (amount < 0) return;
+		if (amount < 0)return;
 		fuel_level += amount;
-		if (fuel_level > CAPACITY)fuel_level = CAPACITY;
+		if (fuel_level > CAPACITY) fuel_level = CAPACITY;
 	}
 	double give_fuel(double amount)
 	{
-		if (amount < 0)return fuel_level;
+		if (amount < 0) return fuel_level;
 		fuel_level -= amount;
 		if (fuel_level < 0) fuel_level = 0;
 		return fuel_level;
 	}
-
 	void info()const
 	{
-		cout << "Capacity:\t" << CAPACITY << " liters.\n";
-		cout << "Fuel level:\t" << fuel_level << " liters.\n";
+		cout << "Capacity:\t" << CAPACITY << " liters\n";
+		cout << "Fuel level:\t" << fuel_level << " liters\n";
 	}
 };
 
-#define MIN_ENGINE_CONSUMPTION	 4
-#define MAX_ENGINE_CONSUMPTION	30
+#define Escape						27
+#define Enter						13
+
+#define MIN_ENGINE_CONSUMPTION		4
+#define MAX_ENGINE_CONSUMPTION		30
 class Engine
 {
-	const double CONSUMPTION;		//Расход на 100км.
-	double consumption_per_second;	//Расход за 1 секунду.
-	bool is_running;   // DONE
+	const double CONSUMPTION;			//расход на 100 км
+	double consumption_per_second;		//расход за 1 секунду
 public:
-	Engine(double consumption) :CONSUMPTION
+	Engine(double consumption) : CONSUMPTION
 	(
-		consumption < MIN_ENGINE_CONSUMPTION ? MIN_ENGINE_CONSUMPTION :
-		consumption > MAX_ENGINE_CONSUMPTION ? MAX_ENGINE_CONSUMPTION :
+		consumption<MIN_ENGINE_CONSUMPTION ? MIN_ENGINE_CONSUMPTION :
+		consumption>MAX_ENGINE_CONSUMPTION ? MAX_ENGINE_CONSUMPTION :
 		consumption
 	)
 	{
-		consumption_per_second = CONSUMPTION * 3e-5;	//3 * 10^(-5)
-		is_running = false;   // DONE
-		cout << "Engine is ready:\t" << this << endl;
+		consumption_per_second = CONSUMPTION * 3e-5;
+		cout << "Engine is ready:\t"<<this << endl;
 	}
 	~Engine()
 	{
-		cout << "Engine is over:\t" << this << endl;
-	}
-
-	// DONE
-	void start()
-	{
-		is_running = true;
-	}
-	void stop()
-	{
-		is_running = false;
-	}
-	bool get_running() const
-	{
-		return is_running;
-	}
-	double get_consumption_per_second() const   // DONE
-	{
-		return consumption_per_second;
+		cout << "Engine is over:\t\t"<<this << endl;
 	}
 
 	void info()const
 	{
-		cout << "Consumption:\t\t" << CONSUMPTION << " liters/km.\n";
-		cout << "Consumption per sec:\t" << consumption_per_second << " liters/sec.\n";
+		cout << "Consumption:\t\t" << CONSUMPTION << " liters/km/\n";
+		cout << "Consumption per sec:\t" << consumption_per_second << " liters/sec/\n";
 	}
+
 };
 
 class Car
@@ -109,12 +93,15 @@ class Car
 	Engine engine;
 	Tank tank;
 	bool driver_inside;
+	struct
+	{
+		std::thread panel_thread;
+	}car_threads;
 public:
-	Car(double consumtion, int capacity = 50) :engine(consumtion), tank(capacity)
+	Car(double consumption, int capacity = 50):engine(consumption),tank(capacity)
 	{
 		driver_inside = false;
-		tank.fill(1);   // DONE
-		cout << "Your car is ready to go, press Enter to get in" << this << endl;
+		cout << "Your car is ready to go, press Enter to get in "<<this << endl;
 	}
 	~Car()
 	{
@@ -123,19 +110,24 @@ public:
 	void get_in()
 	{
 		driver_inside = true;
-		system("CLS");   // DONE
-		panel();
+		//panel();
+		if (!car_threads.panel_thread.joinable())
+			car_threads.panel_thread = std::thread(&Car::panel, this);
 	}
 	void get_out()
 	{
 		driver_inside = false;
+		if (car_threads.panel_thread.joinable())
+			car_threads.panel_thread.join();
+		system("CLS");
+		cout << "Your are out of the car" << endl;
 	}
 	void control()
 	{
 		char key = 0;
 		do
 		{
-			key = _getch();	//Функция _getch() ожидает нажатия клавиши и возвращает ASCII-код нажатой клавиши.
+			key = _getch();
 			switch (key)
 			{
 			case Enter:
@@ -148,69 +140,11 @@ public:
 
 	void panel()
 	{
-		char key = 0;   // DONE
-
-		// DONE			Вывод информации и подсказок
-		cout << "Fuel level: " << tank.get_fuel_level() << " liters.\n";
-		cout << "Engine: " << (engine.get_running() ? "RUNNING" : "STOPPED") << endl;
-		cout << "\nCommands:" << endl;
-		cout << "  'i' - start/stop engine" << endl;
-		cout << "  Enter - get out" << endl;
-		cout << "  Esc - exit program" << endl;
-
 		while (driver_inside)
 		{
-			// DONE: расход топлива
-			if (engine.get_running())
-			{
-				double fuel_before = tank.get_fuel_level();
-				tank.give_fuel(engine.get_consumption_per_second());
-
-				if (tank.get_fuel_level() == 0 && fuel_before > 0)   // DONE
-				{
-					engine.stop();
-					cout << "\nДвигатель остановлен, так как закончилось топливо!" << endl;
-				}
-
-				cout << "\rFuel level: " << tank.get_fuel_level() << " liters.    ";   // DONE
-			}
-
-			// DONE: проверка нажатия клавиш
-			if (_kbhit())
-			{
-				key = _getch();
-				switch (key)
-				{
-				case Enter:
-					driver_inside = false;
-					break;
-				case KeyI:   // DONE
-					if (engine.get_running())
-					{
-						engine.stop();
-						cout << "\nEngine: STOPPED    ";
-					}
-					else
-					{
-						if (tank.get_fuel_level() > 0)
-						{
-							engine.start();
-							cout << "\nEngine: RUNNING    ";
-						}
-						else
-						{
-							cout << "\nНет топлива! Двигатель не может запуститься.    ";   // DONE
-						}
-					}
-					break;
-				case Escape:
-					driver_inside = false;
-					break;
-				}
-			}
-
-			// DONE
-			for (int i = 0; i < 10000000; i++);
+			system("CLS");
+			cout << "Fuel level: " << tank.get_fuel_level() << " liters.\n";
+			std::this_thread::sleep_for(100ms);
 		}
 	}
 };
@@ -221,7 +155,6 @@ public:
 void main()
 {
 	setlocale(LC_ALL, "");
-
 #ifdef TANK_CHECK
 	Tank tank(40);
 	int amount;
